@@ -1,7 +1,7 @@
 msgflow
 =========
 
-Dillinger is a tool to convert logs into text diagram (much like UML interaction diagram).
+msgflow is a tool to convert logs into text diagram (much like UML interaction diagram).
 
 Usages:
    see test files for usage details.
