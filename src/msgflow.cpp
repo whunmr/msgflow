@@ -7,6 +7,8 @@
 #include <pcrecpp.h>
 using namespace std;
 
+#include <boost/regex.hpp>
+
 namespace strings {
   static bool is_start_with(const string& s, const string& prefix) {
     return !s.compare(0, prefix.size(), prefix);
@@ -17,7 +19,7 @@ namespace strings {
     size_t start_pos = 0;
     while((start_pos = tmp.find(from, start_pos)) != string::npos) {
         tmp.replace(start_pos, from.length(), to);
-	start_pos += to.length();
+        start_pos += to.length();
     }
     return tmp;
   }
@@ -44,10 +46,6 @@ struct MsgFlow {
   string dst_;
   string msg_id_;
   string extra_info_;
-
-  void show() {
-    cout << "src: " << src_ << " ,dst_: " << dst_ << " ,msg_id_: " << msg_id_ << " ,extra_info_: " << extra_info_ << endl;
-  }
 };
 
 struct ExtractRule {
@@ -68,7 +66,7 @@ struct MFExtractor {
   static string append_parenthess_if_need(const string& s) {
     string tmp = strings::replace_all(s, "\\(", "");
            tmp = strings::replace_all(tmp, "\\)", "");
-	   
+           
     size_t lcount = std::count(tmp.begin(), tmp.end(), '(');
     size_t rcount = std::count(tmp.begin(), tmp.end(), ')');
 
@@ -78,23 +76,22 @@ struct MFExtractor {
     tmp = s;
     if (lcount < k_max_info_extract_group) 
       for (int i = 0; i < k_max_info_extract_group - lcount; ++i) 
-	tmp += "()";
+        tmp += "()";
 
     return tmp;
   }
     
   static bool extract_msg_flow( const string& line
-			    , const ExtractRule& extract_rule
-			    , MsgFlow& mf) {
+                            , const ExtractRule& extract_rule
+                            , MsgFlow& mf) {
     string info_extract_regex = append_parenthess_if_need(extract_rule.info_extract_regex_);
     if (info_extract_regex.empty())
       return false;
 
     string s[k_max_info_extract_group];
     pcrecpp::RE extract_regex(info_extract_regex);
-    bool matched = extract_regex.FullMatch(line, &s[0], &s[1], &s[2], &s[3], &s[4]
-					       , &s[5], &s[6], &s[7], &s[8], &s[9]
-					       , &s[10], &s[11], &s[12], &s[13], &s[14], &s[15]);
+    bool matched = extract_regex.FullMatch(line, &s[0], &s[1], &s[2], &s[3], &s[4], &s[5], &s[6], &s[7]
+                                               , &s[8], &s[9], &s[10], &s[11], &s[12], &s[13], &s[14], &s[15]);
     if (!matched)
       return false;
     
@@ -136,9 +133,11 @@ list<string> sort_actors(const MsgFlows& mfs, const MsgFlowOption& mfo, string m
 
 bool handled_as_msg_flow_option(const string& line, MsgFlowOption& mfo) {
   ExtractRule er;
-  
-  pcrecpp::RE re("#!MF:regex:(.*),\\s*#!MF:reformat_to:(.*)");
-  if (re.FullMatch(line, &er.info_extract_regex_, &er.reformat_to_)) {
+
+  boost::smatch what;
+  if (boost::regex_match(line, what, boost::regex("#!MF:regex:(.*),\\s*#!MF:reformat_to:(.*)"))) {
+    er.info_extract_regex_ = what[0];
+    er.reformat_to_ = what[1];
     mfo.extract_rules_.push_back(er);
     return true;
   }
@@ -179,12 +178,12 @@ string draw_arrow_on_template_line(const string& template_line, int start_pos, i
       tmp[start_pos] = '*';
     } else {
       int arrow_length = abs(end_pos - start_pos) - 1;
-	
+        
       string arrow;
       if (start_pos > end_pos)
-	arrow = "<" + string(arrow_length-1, '-');
+        arrow = "<" + string(arrow_length-1, '-');
       else
-	arrow = string(arrow_length-1, '-') + ">";
+        arrow = string(arrow_length-1, '-') + ">";
     
       tmp.replace(min(start_pos, end_pos) + 1, arrow.length(), arrow);
     }
@@ -192,28 +191,26 @@ string draw_arrow_on_template_line(const string& template_line, int start_pos, i
     return tmp;
 }
 
-int main(int argc, char** argv) {
+string draw_msgflow(const vector<string>& lines) {
   MsgFlows mfs;
   MsgFlowOption mfo;
-  string line;
-
   int msg_flow_index = 0;
   string unknown_flow_infos;
 
-  while (std::getline(std::cin, line)) {
-    if (0 == line.length())
+  for (vector<string>::const_iterator i = lines.begin(); i != lines.end(); ++i) {
+    if (0 == i->length())
       continue;
     
-    if (!handled_as_msg_flow_option(line, mfo)) {
-      bool extracted = extract_msg_flow_from(line, mfo, mfs);
+    if (!handled_as_msg_flow_option(*i, mfo)) {
+      bool extracted = extract_msg_flow_from(*i, mfo, mfs);
       if (extracted) {
-	++msg_flow_index;
+        ++msg_flow_index;
       } else {
-	unknown_flow_infos += "[" + strings::from_num(msg_flow_index) + "] " + line + "\n";
+        unknown_flow_infos += "[" + strings::from_num(msg_flow_index) + "] " + *i + "\n";
       }
     }
   }
-
+  
   list<string> actors = sort_actors(mfs, mfo, mfo.main_actor_);
   map<string, size_t> vcols;
   string ret;
@@ -241,9 +238,29 @@ int main(int argc, char** argv) {
     ret += i->extra_info_ + "\n";
   }
 
-  cout << ret;
   if (mfo.unknwn_msg_as_extra_info_)
-    cout << unknown_flow_infos;
+    ret += unknown_flow_infos;
+
+  return ret;
+}
+
+
+void print_captures(const std::string& regx, const std::string& text) {
+   boost::smatch what;
+   if(boost::regex_match(text, what, boost::regex(regx))) {
+      for(size_t i = 0; i < what.size(); ++i)
+         std::cout << "      $" << i << " = \"" << what[i] << "\"\n";
+   }
+}
+
+int main(int argc, char** argv) {
+  string line;
+  vector<string> lines;
+  while (std::getline(std::cin, line)) {
+    lines.push_back(line);
+  }
+
+  cout << draw_msgflow(lines);
   
   return 0;
 }
