@@ -10,7 +10,7 @@ TEST_SRCS=$(shell find test -iname *.cpp)
 TEST_OBJS=$(subst .cpp,.o,$(TEST_SRCS))
 
 all: $(TEST_OBJS)
-	g++ -I/usr/include -o msgflow src/msgflow.cpp -lpthread -lpcrecpp
+	g++ -I/usr/include -o msgflow src/msgflow.cpp -lpthread -lpcrecpp -lboost_regex
 	g++ $(CPPFLAGS) $(LDFLAGS) -g -o main $^ $(LDLIBS) && ./main --gtest_filter=*xxx*
 
 clean:
