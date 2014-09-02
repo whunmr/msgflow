@@ -4,7 +4,7 @@
 #include <list>
 #include <map>
 #include <algorithm>
-#include "re2/re2.h"
+#include <pcrecpp.h>
 using namespace std;
 
 namespace strings {
@@ -37,7 +37,7 @@ static const char* k_mf_main_actor = "#!MF:main_actor:";
 static const char* k_mf_draw_from_right = "#!MF:draw_from_right:";
 static const char* k_mf_unknwn_msg_as_extra_info = "#!MF:unknwn_msg_as_extra_info:";
 static const char* k_actor_span = "   ";
-static const size_t k_max_info_extract_group = 20;
+static const size_t k_max_info_extract_group = 16;
 
 struct MsgFlow {
   string src_;
@@ -86,20 +86,15 @@ struct MFExtractor {
   static bool extract_msg_flow( const string& line
 			    , const ExtractRule& extract_rule
 			    , MsgFlow& mf) {
-    RE2::Arg argv[k_max_info_extract_group];
-    const RE2::Arg* args[k_max_info_extract_group];
-    string s[k_max_info_extract_group];
-    
-    for (int i = 0; i < k_max_info_extract_group; ++i) {
-      argv[i] = &s[i];
-      args[i] = &argv[i];
-    }
-
     string info_extract_regex = append_parenthess_if_need(extract_rule.info_extract_regex_);
     if (info_extract_regex.empty())
       return false;
 
-    bool matched = RE2::FullMatchN(line, info_extract_regex, args, k_max_info_extract_group);
+    string s[k_max_info_extract_group];
+    pcrecpp::RE extract_regex(info_extract_regex);
+    bool matched = extract_regex.FullMatch(line, &s[0], &s[1], &s[2], &s[3], &s[4]
+					       , &s[5], &s[6], &s[7], &s[8], &s[9]
+					       , &s[10], &s[11], &s[12], &s[13], &s[14], &s[15]);
     if (!matched)
       return false;
     
@@ -110,8 +105,8 @@ struct MFExtractor {
       reformat_to = strings::replace_all(reformat_to, from+index_char, s[i]);
     }
 
-    string split_regex = "^src:(.*), dst:(.*), msg_id:(.*), extra_info:(.*)$";
-    return RE2::FullMatch(reformat_to, split_regex, &mf.src_, &mf.dst_, &mf.msg_id_, &mf.extra_info_);
+    pcrecpp::RE re("^src:(.*), dst:(.*), msg_id:(.*), extra_info:(.*)$");
+    return re.FullMatch(reformat_to, &mf.src_, &mf.dst_, &mf.msg_id_, &mf.extra_info_);
   }
 };
 
@@ -141,7 +136,9 @@ list<string> sort_actors(const MsgFlows& mfs, const MsgFlowOption& mfo, string m
 
 bool handled_as_msg_flow_option(const string& line, MsgFlowOption& mfo) {
   ExtractRule er;
-  if (RE2::FullMatch(line, "#!MF:regex:(.*),\\s*#!MF:reformat_to:(.*)", &er.info_extract_regex_, &er.reformat_to_)) {
+  
+  pcrecpp::RE re("#!MF:regex:(.*),\\s*#!MF:reformat_to:(.*)");
+  if (re.FullMatch(line, &er.info_extract_regex_, &er.reformat_to_)) {
     mfo.extract_rules_.push_back(er);
     return true;
   }
