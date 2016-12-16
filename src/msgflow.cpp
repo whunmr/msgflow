@@ -4,8 +4,8 @@
 #include <list>
 #include <map>
 #include <algorithm>
+#include <regex>
 using namespace std;
-#include <boost/regex.hpp>
 
 namespace strings {
   static bool is_start_with(const string& s, const string& prefix) {
@@ -183,8 +183,8 @@ struct MFExtractor {
     if (info_extract_regex.empty())
       return NULL;
 
-    boost::smatch w;
-    bool matched = boost::regex_match(line, w, boost::regex(info_extract_regex));
+    std::smatch w;
+    bool matched = std::regex_match(line, w, std::regex(info_extract_regex));
 
     if (!matched)
       return NULL;
@@ -196,8 +196,8 @@ struct MFExtractor {
       reformat_to = strings::replace_all(reformat_to, from+index_char, w[i+1]);
     }
 
-    boost::smatch what;
-    if (boost::regex_match(reformat_to, what, boost::regex("^src:(.*), dst:(.*), msg_id:(.*), extra_info:(.*)$"))) {
+    std::smatch what;
+    if (std::regex_match(reformat_to, what, std::regex("^src:(.*), dst:(.*), msg_id:(.*), extra_info:(.*)$"))) {
       return new ArrowMsgFlow(what[1], what[2], what[3], what[4]);
     }
     
@@ -233,8 +233,8 @@ Actors sort_actors(const MsgFlows& mfs, const MsgFlowOption& mfo, string main_ac
 bool handled_as_msg_flow_option(const string& line, MsgFlowOption& mfo) {
   ExtractRule er;
 
-  boost::smatch what;
-  if (boost::regex_match(line, what, boost::regex("#!MF:regex:(.*),\\s*#!MF:reformat_to:(.*)"))) {
+  std::smatch what;
+  if (std::regex_match(line, what, std::regex("#!MF:regex:(.*),\\s*#!MF:reformat_to:(.*)"))) {
     er.info_extract_regex_ = what[1];
     er.reformat_to_ = what[2];
     mfo.extract_rules_.push_back(er);
